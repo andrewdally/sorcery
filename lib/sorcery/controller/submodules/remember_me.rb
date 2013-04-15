@@ -19,7 +19,7 @@ module Sorcery
           end
           Config.login_sources << :login_from_cookie
           Config.after_login << :remember_me_if_asked_to
-          Config.after_logout << :forget_me!
+          Config.after_logout << :forget_me
         end
 
         module InstanceMethods
@@ -28,7 +28,18 @@ module Sorcery
             current_user.remember_me!
             set_remember_me_cookie!(current_user)
           end
+          
+          # Set the remember_me cookie. Fallback to remember_me! if the remember_me_token has not yet been set.
+          def remember_me
+            current_user.remember_me! and return if current_user.remember_me_token.blank?
+            set_remember_me_cookie!(current_user)
+          end
 
+          # Clears the cookie
+          def forget_me
+            cookies.delete(:remember_me_token, :domain => Config.cookie_domain)
+          end
+          
           # Clears the cookie and clears the token from the db.
           def forget_me!
             @current_user.forget_me!
@@ -40,7 +51,7 @@ module Sorcery
           def auto_login(user, should_remember = false)
             session[:user_id] = user.id
             @current_user = user
-            remember_me! if should_remember
+            remember_me if should_remember
           end
 
           protected
@@ -48,7 +59,7 @@ module Sorcery
           # calls remember_me! if a third credential was passed to the login method.
           # Runs as a hook after login.
           def remember_me_if_asked_to(user, credentials)
-            remember_me! if ( credentials.size == 3 && credentials[2] && credentials[2] != "0" )
+            remember_me if ( credentials.size == 3 && credentials[2] && credentials[2] != "0" )
           end
 
           # Checks the cookie for a remember me token, tried to find a user with that token
